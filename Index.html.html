@@ -1,0 +1,1424 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SchoolWatch - Modern Enterprise School Device Management & Classroom Platform</title>
+    <!-- Tailwind CSS v3 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#eff6ff',
+                            100: '#dbeafe',
+                            500: '#3b82f6',
+                            600: '#2563eb',
+                            700: '#1d4ed8',
+                            800: '#1e40af',
+                            900: '#1e3a8a',
+                            950: '#172554',
+                        },
+                        tealAccent: {
+                            400: '#2dd4bf',
+                            500: '#14b8a6',
+                            600: '#0d9488',
+                        }
+                    },
+                    animation: {
+                        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- FontAwesome 6 Pro icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    
+    <style>
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+        }
+        .font-mono {
+            font-family: 'JetBrains Mono', monospace;
+        }
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.6);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(51, 65, 85, 0.8);
+            border-radius: 9999px;
+        }
+        .screen-watermark {
+            background: repeating-linear-gradient(
+                -45deg,
+                rgba(239, 68, 68, 0.05),
+                rgba(239, 68, 68, 0.05) 10px,
+                rgba(0, 0, 0, 0) 10px,
+                rgba(0, 0, 0, 0) 20px
+            );
+        }
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.75);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col antialiased transition-colors duration-300 relative selection:bg-brand-500 selection:text-white">
+
+    <div id="toast-container" class="fixed top-20 right-5 z-50 flex flex-col gap-3 max-w-md w-full pointer-events-none"></div>
+
+    <!-- GLOBAL KEYBOARD / INPUT LOCK OVERLAY -->
+    <div id="keyboard-lock-overlay" class="fixed inset-0 z-50 bg-rose-950/95 backdrop-blur-xl hidden flex flex-col items-center justify-center p-6 text-center select-none">
+        <div class="w-24 h-24 rounded-full bg-rose-600/30 border-4 border-rose-500 flex items-center justify-center text-rose-200 text-5xl mb-6 animate-bounce">
+            <i class="fa-solid fa-lock"></i>
+        </div>
+        <h1 class="text-3xl sm:text-4xl font-black text-white tracking-tight uppercase mb-2">Device & Input Locked by Admin</h1>
+        <p id="lock-overlay-reason" class="text-rose-200 text-sm max-w-xl mb-6 font-medium">An authorized school administrator has issued a system-wide focus lock for your device. Keyboard and touch input are temporarily paused for school instructions.</p>
+        <div class="px-4 py-2 bg-slate-900/80 rounded-xl border border-rose-500/40 text-xs font-mono text-rose-300">
+            <i class="fa-solid fa-shield-halved mr-2"></i>SchoolWatch Enforced Session Security Policy
+        </div>
+        <button id="admin-unlock-btn" onclick="toggleKeyboardLock(false)" class="hidden mt-8 px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs shadow-lg transition-all">
+            <i class="fa-solid fa-key mr-2"></i>Admin Override Unlock
+        </button>
+    </div>
+
+    <!-- Global Privacy Guarantee Banner -->
+    <div class="bg-gradient-to-r from-brand-950 via-indigo-950 to-slate-900 text-xs py-1.5 px-4 border-b border-brand-800/40 flex flex-wrap justify-between items-center z-40 text-slate-300 gap-2">
+        <div class="flex items-center gap-2">
+            <span class="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-bold text-[10px] tracking-wider uppercase border border-emerald-500/30">
+                <i class="fa-solid fa-shield-halved mr-1"></i> Privacy Protected
+            </span>
+            <span>Transparent device monitoring for <strong>Rusinga & Makini Schools</strong>. Webcams & Mics hardcoded disabled.</span>
+        </div>
+        <div class="hidden md:flex items-center gap-4 text-slate-400">
+            <span id="g-classroom-status-pill" class="text-xs text-amber-400 font-semibold cursor-pointer hover:underline" onclick="openGoogleClassroomModal()">
+                <i class="fa-brands fa-google mr-1"></i> Sync Google Classroom
+            </span>
+            <span><i class="fa-solid fa-lock text-brand-400 mr-1"></i> AES-256 Encrypted</span>
+            <button onclick="switchView('privacy')" class="underline hover:text-white transition-colors">Privacy Specs</button>
+        </div>
+    </div>
+
+    <!-- MAIN WRAPPER -->
+    <div id="app-container" class="flex flex-col flex-grow relative overflow-hidden">
+
+        <header class="sticky top-0 z-30 bg-slate-900/90 backdrop-blur-md border-b border-slate-800 h-16 flex items-center justify-between px-4 sm:px-6">
+            
+            <div class="flex items-center gap-4">
+                <button onclick="toggleSidebar()" class="lg:hidden p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors">
+                    <i class="fa-solid fa-bars text-lg"></i>
+                </button>
+                <div onclick="switchView('landing')" class="flex items-center gap-3 cursor-pointer group">
+                    <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-600 via-indigo-600 to-tealAccent-500 flex items-center justify-center text-white font-extrabold shadow-lg shadow-brand-600/30 group-hover:scale-105 transition-transform">
+                        <i class="fa-solid fa-laptop-code text-xl"></i>
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <span class="font-black text-xl tracking-tight text-white">School<span class="text-brand-500">Watch</span></span>
+                            <span class="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 font-semibold uppercase">Rusinga & Makini</span>
+                        </div>
+                        <p class="text-[10px] text-slate-400 font-medium">Enterprise Device Management System</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Breadcrumb Title -->
+            <div id="breadcrumb-title" class="hidden md:flex items-center gap-2 text-sm font-medium text-slate-400">
+                <i class="fa-solid fa-gauge text-brand-500"></i>
+                <span>Portal</span>
+                <i class="fa-solid fa-chevron-right text-xs text-slate-600"></i>
+                <span id="current-view-name" class="text-slate-100 font-semibold uppercase">Dashboard Overview</span>
+            </div>
+
+            <!-- Right Controls -->
+            <div class="flex items-center gap-3">
+                <!-- Samuel Awodumila Exclusive Master Badge -->
+                <div id="samuel-master-badge" class="hidden flex items-center gap-2 bg-gradient-to-r from-purple-900 via-rose-900 to-slate-900 border border-purple-500/50 px-3 py-1 rounded-xl">
+                    <span class="w-2 h-2 rounded-full bg-purple-400 animate-ping"></span>
+                    <span class="text-xs font-black text-purple-200 uppercase tracking-wider hidden lg:inline">Samuel Master Mode</span>
+                    <button onclick="triggerSamuelMasterLockdown()" class="ml-1 px-2 py-0.5 bg-rose-600 hover:bg-rose-700 text-white font-bold text-[10px] rounded shadow-md transition-all">
+                        <i class="fa-solid fa-power-off mr-1"></i> SHUTDOWN
+                    </button>
+                </div>
+
+                <!-- Role Selector -->
+                <select id="roleSelector" onchange="changeActiveRole(this.value)" class="bg-slate-800 border border-slate-700 text-xs font-semibold rounded-lg px-3 py-1.5 text-white focus:outline-none focus:ring-2 focus:ring-brand-500 cursor-pointer shadow-sm">
+                    <option value="samuel_admin">⚡ Master Admin (Samuel Awodumila)</option>
+                    <option value="school_admin">🏫 ICT Admin (Rusinga/Makini)</option>
+                    <option value="teacher">👨‍🏫 Teacher (Mr. John Davis)</option>
+                    <option value="student">🎓 Student (Alex Rivera)</option>
+                </select>
+
+                <!-- Auth Modal Opener -->
+                <button onclick="openAuthModal('login')" id="auth-header-btn" class="px-3 py-1.5 bg-brand-600 hover:bg-brand-500 text-white rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shadow-md">
+                    <i class="fa-solid fa-right-to-bracket"></i> <span id="auth-btn-label">Sign In</span>
+                </button>
+
+                <!-- Theme Toggle -->
+                <button onclick="toggleTheme()" class="w-9 h-9 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-300 hover:text-white hover:bg-slate-700 transition-colors">
+                    <i class="fa-solid fa-sun text-amber-400 hidden dark:block"></i>
+                    <i class="fa-solid fa-moon text-indigo-400 block dark:hidden"></i>
+                </button>
+            </div>
+        </header>
+
+        <div class="flex flex-grow relative">
+            <aside id="sidebar-menu" class="fixed lg:static inset-y-0 left-0 z-30 w-64 bg-slate-900 border-r border-slate-800 flex flex-col justify-between transform -translate-x-full lg:translate-x-0 transition-transform duration-300 ease-in-out">
+                <div class="p-4 space-y-6 overflow-y-auto">
+                    
+                    <!-- User Info Card -->
+                    <div class="p-3 rounded-2xl bg-slate-950 border border-slate-800 flex items-center gap-3">
+                        <div id="user-avatar-badge" class="w-9 h-9 rounded-xl bg-purple-600 text-white flex items-center justify-center font-bold text-sm">
+                            <i class="fa-solid fa-crown"></i>
+                        </div>
+                        <div class="overflow-hidden">
+                            <p id="user-name-display" class="text-xs font-bold text-white truncate">Samuel Awodumila</p>
+                            <p id="user-role-display" class="text-[10px] text-purple-400 truncate font-mono">Master Administrator</p>
+                        </div>
+                    </div>
+
+                    <!-- Navigation Items -->
+                    <div class="space-y-1">
+                        <p class="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-2 px-3">Management Portal</p>
+                        
+                        <button onclick="switchView('dashboard')" id="nav-dashboard" class="nav-item w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition-all bg-brand-600/20 text-brand-400 border border-brand-500/30">
+                            <div class="flex items-center gap-3">
+                                <i class="fa-solid fa-chart-line w-4 text-center"></i>
+                                <span>Overview Dashboard</span>
+                            </div>
+                        </button>
+
+                        <button onclick="switchView('approval-queue')" id="nav-approval-queue" class="nav-item w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition-all text-slate-400 hover:bg-slate-800 hover:text-white">
+                            <div class="flex items-center gap-3">
+                                <i class="fa-solid fa-user-clock w-4 text-center text-amber-400"></i>
+                                <span>Account Approvals</span>
+                            </div>
+                            <span id="pending-users-badge" class="bg-amber-500/20 text-amber-400 text-[10px] px-2 py-0.5 rounded-full font-bold">2 Pending</span>
+                        </button>
+
+                        <button onclick="switchView('classroom')" id="nav-classroom" class="nav-item w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition-all text-slate-400 hover:bg-slate-800 hover:text-white">
+                            <div class="flex items-center gap-3">
+                                <i class="fa-solid fa-chalkboard-user w-4 text-center text-indigo-400"></i>
+                                <span>Classroom Control</span>
+                            </div>
+                            <span id="active-class-count-badge" class="bg-emerald-500/20 text-emerald-400 text-[10px] px-2 py-0.5 rounded-full font-bold">12 Online</span>
+                        </button>
+
+                        <button onclick="switchView('live-grid')" id="nav-live-grid" class="nav-item w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition-all text-slate-400 hover:bg-slate-800 hover:text-white">
+                            <div class="flex items-center gap-3">
+                                <i class="fa-solid fa-desktop w-4 text-center text-amber-400"></i>
+                                <span>Live Screen Grid</span>
+                            </div>
+                            <span id="active-screens-badge" class="bg-amber-500/20 text-amber-400 text-[10px] px-2 py-0.5 rounded-full font-bold">2 Sharing</span>
+                        </button>
+
+                        <button onclick="switchView('room-codes')" id="nav-room-codes" class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all text-slate-400 hover:bg-slate-800 hover:text-white">
+                            <i class="fa-solid fa-key w-4 text-center text-amber-400"></i>
+                            <span>Class Room Codes</span>
+                        </button>
+
+                        <button onclick="switchView('group-chat')" id="nav-group-chat" class="nav-item w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition-all text-slate-400 hover:bg-slate-800 hover:text-white">
+                            <div class="flex items-center gap-3">
+                                <i class="fa-solid fa-comments w-4 text-center text-tealAccent-400"></i>
+                                <span>School Group Chat</span>
+                            </div>
+                            <span class="w-2 h-2 rounded-full bg-tealAccent-400"></span>
+                        </button>
+
+                        <button onclick="switchView('banned-alerts')" id="nav-banned-alerts" class="nav-item w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition-all text-slate-400 hover:bg-slate-800 hover:text-white">
+                            <div class="flex items-center gap-3">
+                                <i class="fa-solid fa-triangle-exclamation w-4 text-center text-rose-400"></i>
+                                <span>Banned Activity Feed</span>
+                            </div>
+                            <span id="alert-count-badge" class="bg-rose-500/20 text-rose-400 text-[10px] px-2 py-0.5 rounded-full font-bold">3 Alerts</span>
+                        </button>
+
+                        <button onclick="switchView('enrollment')" id="nav-enrollment" class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all text-slate-400 hover:bg-slate-800 hover:text-white">
+                            <i class="fa-solid fa-qrcode w-4 text-center text-tealAccent-500"></i>
+                            <span>Device Enrollment</span>
+                        </button>
+
+                        <button onclick="switchView('student-dash')" id="nav-student-dash" class="nav-item w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition-all text-slate-400 hover:bg-slate-800 hover:text-white">
+                            <div class="flex items-center gap-3">
+                                <i class="fa-solid fa-user-graduate w-4 text-center text-purple-400"></i>
+                                <span>Student Dashboard</span>
+                            </div>
+                            <span class="bg-purple-500/20 text-purple-400 text-[10px] px-2 py-0.5 rounded-full font-bold">BYOD</span>
+                        </button>
+
+                        <button onclick="switchView('admin-settings')" id="nav-admin-settings" class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all text-slate-400 hover:bg-slate-800 hover:text-white">
+                            <i class="fa-solid fa-sliders w-4 text-center text-indigo-400"></i>
+                            <span>School Settings</span>
+                        </button>
+
+                        <button onclick="switchView('audit-logs')" id="nav-audit-logs" class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all text-slate-400 hover:bg-slate-800 hover:text-white">
+                            <i class="fa-solid fa-receipt w-4 text-center text-slate-400"></i>
+                            <span>Security Audit Logs</span>
+                        </button>
+
+                        <button onclick="switchView('privacy')" id="nav-privacy" class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all text-slate-400 hover:bg-slate-800 hover:text-white">
+                            <i class="fa-solid fa-shield-cat w-4 text-center text-emerald-400"></i>
+                            <span>Privacy Specs</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="p-4 border-t border-slate-800 bg-slate-950/50">
+                    <div class="p-3 rounded-xl bg-slate-900 border border-slate-800 space-y-1.5">
+                        <div class="flex justify-between items-center text-xs">
+                            <span class="text-slate-400 font-medium">MDM Cluster Scale:</span>
+                            <span class="text-emerald-400 font-bold flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span> 100k+ Roster</span>
+                        </div>
+                        <div class="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                            <div class="bg-gradient-to-r from-brand-500 to-tealAccent-500 h-full w-[96%]"></div>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+
+            <main class="flex-grow p-4 sm:p-6 lg:p-8 overflow-y-auto max-w-7xl mx-auto w-full space-y-6">
+
+                <!-- VIEW 1: LANDING OVERVIEW -->
+                <section id="view-landing" class="view-panel space-y-8">
+                    <div class="relative rounded-3xl bg-gradient-to-br from-brand-950 via-slate-900 to-slate-950 border border-brand-800/40 p-8 sm:p-12 overflow-hidden shadow-2xl">
+                        <div class="relative z-10 max-w-3xl space-y-6">
+                            <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-brand-500/10 text-brand-400 border border-brand-500/30 text-xs font-semibold">
+                                <i class="fa-solid fa-shield-heart text-tealAccent-500"></i> Enterprise Classroom Device Management
+                            </div>
+                            <h1 class="text-4xl sm:text-5xl font-black text-white tracking-tight leading-tight">
+                                Transparent Monitoring. <br/><span class="text-transparent bg-clip-text bg-gradient-to-r from-brand-400 via-tealAccent-500 to-emerald-400">Authorized Classrooms.</span>
+                            </h1>
+                            <p class="text-slate-300 text-base leading-relaxed">
+                                Enterprise device management platform designed specifically for <strong>Rusinga & Makini Schools</strong>. Scale to 100,000+ students with domain authentication, room codes, and zero hidden surveillance.
+                            </p>
+                            <div class="flex flex-wrap items-center gap-4 pt-2">
+                                <button onclick="switchView('classroom')" class="px-6 py-3 bg-gradient-to-r from-brand-600 to-tealAccent-600 hover:from-brand-500 hover:to-tealAccent-500 text-white font-bold rounded-xl shadow-lg flex items-center gap-2 transition-all">
+                                    <i class="fa-solid fa-chalkboard-user"></i> Open Classroom Portal
+                                </button>
+                                <button onclick="openAuthModal('signup')" class="px-6 py-3 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white font-bold rounded-xl flex items-center gap-2 transition-all">
+                                    <i class="fa-solid fa-user-plus"></i> Register School Account
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- VIEW 2: ADMIN DASHBOARD -->
+                <section id="view-dashboard" class="view-panel hidden space-y-6">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div class="p-5 rounded-2xl bg-slate-900 border border-slate-800 space-y-2">
+                            <div class="flex justify-between items-center text-slate-400 text-xs font-semibold">
+                                <span>ENROLLED ROSTER CAPACITY</span>
+                                <i class="fa-solid fa-users text-brand-500 text-base"></i>
+                            </div>
+                            <div class="text-3xl font-black text-white">100,000+</div>
+                            <div class="text-[11px] text-emerald-400 font-semibold"><i class="fa-solid fa-check"></i> Scaled MDM Architecture</div>
+                        </div>
+
+                        <div class="p-5 rounded-2xl bg-slate-900 border border-slate-800 space-y-2">
+                            <div class="flex justify-between items-center text-slate-400 text-xs font-semibold">
+                                <span>PENDING APPROVALS</span>
+                                <i class="fa-solid fa-user-clock text-amber-500 text-base"></i>
+                            </div>
+                            <div class="text-3xl font-black text-amber-400" id="dash-pending-count">2</div>
+                            <div class="text-[11px] text-slate-400">Requires ICT admin verification</div>
+                        </div>
+
+                        <div class="p-5 rounded-2xl bg-slate-900 border border-slate-800 space-y-2">
+                            <div class="flex justify-between items-center text-slate-400 text-xs font-semibold">
+                                <span>ACTIVE ROOM SESSIONS</span>
+                                <i class="fa-solid fa-key text-tealAccent-500 text-base"></i>
+                            </div>
+                            <div class="text-3xl font-black text-tealAccent-400">2 Rooms</div>
+                            <div class="text-[11px] text-slate-400">Period 3 CS & Form 2 Math</div>
+                        </div>
+
+                        <div class="p-5 rounded-2xl bg-slate-900 border border-slate-800 space-y-2">
+                            <div class="flex justify-between items-center text-slate-400 text-xs font-semibold">
+                                <span>SECURITY COMPLIANCE</span>
+                                <i class="fa-solid fa-shield-check text-emerald-500 text-base"></i>
+                            </div>
+                            <div class="text-3xl font-black text-emerald-400">100%</div>
+                            <div class="text-[11px] text-emerald-400"><i class="fa-solid fa-check-double"></i> Zero Stealth Privacy Mode</div>
+                        </div>
+                    </div>
+
+                    <!-- Remote Input Lock Control Card -->
+                    <div class="p-6 rounded-3xl bg-slate-900 border border-rose-500/30 space-y-4 shadow-xl">
+                        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-slate-800 pb-4">
+                            <div>
+                                <h3 class="font-extrabold text-white text-lg flex items-center gap-2">
+                                    <i class="fa-solid fa-lock text-rose-500"></i> Remote Keyboard & Input Lock Center
+                                </h3>
+                                <p class="text-xs text-slate-400">Instantly lock keyboard and touch inputs across active student devices during broadcasts or announcements.</p>
+                            </div>
+                            <div class="flex gap-2">
+                                <button onclick="toggleKeyboardLock(true)" class="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl shadow-lg flex items-center gap-1.5 transition-all">
+                                    <i class="fa-solid fa-lock"></i> Trigger System Lock
+                                </button>
+                                <button onclick="toggleKeyboardLock(false)" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs rounded-xl border border-slate-700 transition-all">
+                                    Unlock Input
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- VIEW 3: ACCOUNT APPROVAL QUEUE -->
+                <section id="view-approval-queue" class="view-panel hidden space-y-6 max-w-5xl mx-auto">
+                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                        <div>
+                            <h2 class="text-xl font-black text-white flex items-center gap-2">
+                                <i class="fa-solid fa-user-clock text-amber-400"></i> Account Registration Approval Queue
+                            </h2>
+                            <p class="text-xs text-slate-400">New user sign-ups require ICT Admin approval before gaining portal access.</p>
+                        </div>
+                        <div class="text-xs text-slate-400 bg-slate-900 px-3 py-1.5 rounded-xl border border-slate-800">
+                            Approved Domains: <span class="text-emerald-400 font-mono" id="approval-domains-label">rusinga.ac.ke, makini.ac.ke, gmail.com</span>
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
+                        <table class="w-full text-left text-xs">
+                            <thead class="bg-slate-950 text-slate-400 uppercase tracking-wider font-mono text-[10px] border-b border-slate-800">
+                                <tr>
+                                    <th class="p-3.5">User Name</th>
+                                    <th class="p-3.5">School Email</th>
+                                    <th class="p-3.5">Requested Role</th>
+                                    <th class="p-3.5">Department / Job</th>
+                                    <th class="p-3.5 text-right">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="approval-queue-rows" class="divide-y divide-slate-800 text-slate-300">
+                                <!-- Dynamic approval queue -->
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <!-- VIEW 4: CLASSROOM VIEW -->
+                <section id="view-classroom" class="view-panel hidden space-y-6">
+                    <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 rounded-2xl bg-slate-900 border border-slate-800">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-xl bg-indigo-600/20 text-indigo-400 border border-indigo-500/30 flex items-center justify-center font-bold">
+                                <i class="fa-solid fa-graduation-cap"></i>
+                            </div>
+                            <div>
+                                <label class="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Active Class Period</label>
+                                <select id="classroom-select" onchange="filterClassroom(this.value)" class="bg-slate-800 text-white font-bold text-sm rounded-lg px-3 py-1 border border-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500 cursor-pointer">
+                                    <option value="cs101">Period 3 - AP Computer Science A (6 Students)</option>
+                                    <option value="math10">Period 1 - Grade 10 Honors Algebra (2 Students)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center gap-2 w-full sm:w-auto overflow-x-auto">
+                            <button onclick="toggleFocusMode()" id="focus-mode-toggle-btn" class="px-3 py-1.5 bg-indigo-500/10 border border-indigo-500/30 text-indigo-400 hover:bg-indigo-500 hover:text-white rounded-lg text-xs font-bold transition-all">
+                                <i class="fa-solid fa-bullseye"></i> Toggle Focus Mode
+                            </button>
+                            <button onclick="bulkLockClass()" class="px-3 py-1.5 bg-rose-500/10 border border-rose-500/30 text-rose-400 hover:bg-rose-500 hover:text-white rounded-lg text-xs font-bold transition-all">
+                                <i class="fa-solid fa-lock"></i> Lock Devices
+                            </button>
+                            <button onclick="bulkMessageClass()" class="px-3 py-1.5 bg-brand-500/10 border border-brand-500/30 text-brand-400 hover:bg-brand-500 hover:text-white rounded-lg text-xs font-bold transition-all">
+                                <i class="fa-solid fa-paper-plane"></i> Announcement
+                            </button>
+                            <button onclick="bulkStopAllSharing()" class="px-3 py-1.5 bg-slate-800 border border-slate-700 text-slate-300 hover:bg-slate-700 hover:text-white rounded-lg text-xs font-bold transition-all">
+                                <i class="fa-solid fa-stop-circle"></i> Stop All Screens
+                            </button>
+                        </div>
+                    </div>
+
+                    <div id="students-grid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                        <!-- Dynamic Student Cards -->
+                    </div>
+                </section>
+
+                <!-- VIEW 5: LIVE SCREEN GRID -->
+                <section id="view-live-grid" class="view-panel hidden space-y-6">
+                    <div class="flex justify-between items-center border-b border-slate-800 pb-4">
+                        <div>
+                            <h2 class="text-xl font-black text-white flex items-center gap-2">
+                                <i class="fa-solid fa-desktop text-amber-400"></i> Authorized Live Screen Grid
+                            </h2>
+                            <p class="text-xs text-slate-400">Real-time student screen views with persistent notification banners enabled on client devices.</p>
+                        </div>
+                        <button onclick="bulkStopAllSharing()" class="px-3 py-1.5 bg-rose-600 text-white font-bold text-xs rounded-lg hover:bg-rose-700">Stop All Views</button>
+                    </div>
+
+                    <div id="live-screens-container" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <!-- Dynamic Screen Cards -->
+                    </div>
+                </section>
+
+                <!-- VIEW 6: CLASS ROOM CODES -->
+                <section id="view-room-codes" class="view-panel hidden space-y-6 max-w-4xl mx-auto">
+                    <div class="p-6 rounded-3xl bg-slate-900 border border-slate-800 space-y-6">
+                        <div class="flex justify-between items-center border-b border-slate-800 pb-4">
+                            <div>
+                                <h2 class="text-xl font-black text-white flex items-center gap-2">
+                                    <i class="fa-solid fa-key text-amber-400"></i> Classroom Join Code Manager
+                                </h2>
+                                <p class="text-xs text-slate-400">Generate short-lived session codes for Rusinga & Makini classes.</p>
+                            </div>
+                            <button onclick="createNewClassCode()" class="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs rounded-xl shadow-lg transition-all flex items-center gap-2">
+                                <i class="fa-solid fa-plus"></i> Generate New Code
+                            </button>
+                        </div>
+
+                        <div id="active-codes-grid" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <!-- Dynamic Room Codes Cards -->
+                        </div>
+                    </div>
+                </section>
+
+                <!-- VIEW 7: INTEGRATED GROUP CHAT -->
+                <section id="view-group-chat" class="view-panel hidden space-y-6 max-w-5xl mx-auto">
+                    <div class="grid grid-cols-1 md:grid-cols-3 bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden min-h-[500px] shadow-2xl">
+                        <!-- Chat Sidebar -->
+                        <div class="p-4 border-r border-slate-800 bg-slate-950/60 space-y-4">
+                            <div class="flex justify-between items-center">
+                                <h3 class="font-bold text-white text-sm">School Channels</h3>
+                                <button onclick="openCreateGroupModal()" class="w-7 h-7 rounded-lg bg-brand-600 hover:bg-brand-500 text-white text-xs flex items-center justify-center">
+                                    <i class="fa-solid fa-plus"></i>
+                                </button>
+                            </div>
+                            <div id="chat-channels-list" class="space-y-1">
+                                <!-- Dynamic channels -->
+                            </div>
+                        </div>
+
+                        <!-- Chat Area -->
+                        <div class="md:col-span-2 flex flex-col justify-between bg-slate-900">
+                            <!-- Chat Header -->
+                            <div class="p-4 border-b border-slate-800 flex justify-between items-center bg-slate-950/40">
+                                <div>
+                                    <h4 id="active-chat-channel-title" class="font-bold text-white text-sm"># teachers-staff-only</h4>
+                                    <p class="text-[10px] text-slate-400">Encrypted staff communication channel</p>
+                                </div>
+                                <span class="px-2 py-0.5 rounded bg-brand-500/20 text-brand-400 text-[10px] font-mono">Official</span>
+                            </div>
+
+                            <!-- Chat Messages Feed -->
+                            <div id="chat-messages-feed" class="p-4 space-y-3 overflow-y-auto max-h-[350px]">
+                                <!-- Dynamic messages -->
+                            </div>
+
+                            <!-- Chat Input -->
+                            <form onsubmit="sendChatMessage(event)" class="p-3 border-t border-slate-800 flex gap-2 bg-slate-950">
+                                <input type="text" id="chat-input-field" placeholder="Type a message to the group..." class="flex-grow bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:ring-2 focus:ring-brand-500">
+                                <button type="submit" class="px-4 py-2 bg-brand-600 hover:bg-brand-500 text-white text-xs font-bold rounded-xl shadow-md">
+                                    <i class="fa-solid fa-paper-plane"></i>
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- VIEW 8: BANNED ACTIVITY ALERTS -->
+                <section id="view-banned-alerts" class="view-panel hidden space-y-6 max-w-4xl mx-auto">
+                    <div class="p-6 rounded-3xl bg-slate-900 border border-slate-800 space-y-6">
+                        <div class="flex justify-between items-center border-b border-slate-800 pb-4">
+                            <div>
+                                <h2 class="text-xl font-black text-white flex items-center gap-2">
+                                    <i class="fa-solid fa-triangle-exclamation text-rose-400"></i> Banned Activity Alerts Feed
+                                </h2>
+                                <p class="text-xs text-slate-400">Real-time alerts for Instagram notifications, unapproved site access, and off-task apps.</p>
+                            </div>
+                            <button onclick="clearAlertsFeed()" class="px-3 py-1.5 bg-slate-800 text-slate-300 text-xs rounded-lg hover:bg-slate-700">Clear Feed</button>
+                        </div>
+
+                        <div id="banned-activity-list" class="space-y-3">
+                            <!-- Dynamic Alert Feed Items -->
+                        </div>
+                    </div>
+                </section>
+
+                <!-- VIEW 9: DEVICE ENROLLMENT -->
+                <section id="view-enrollment" class="view-panel hidden space-y-8 max-w-4xl mx-auto">
+                    <div class="text-center space-y-2">
+                        <div class="w-12 h-12 rounded-2xl bg-tealAccent-500/10 border border-tealAccent-500/30 text-tealAccent-400 flex items-center justify-center text-2xl mx-auto">
+                            <i class="fa-solid fa-qrcode"></i>
+                        </div>
+                        <h2 class="text-2xl font-black text-white">Join SchoolWatch Management System</h2>
+                        <p class="text-xs text-slate-400 max-w-lg mx-auto">Register your school laptop, BYOD device, or mobile phone using your teacher's session room code.</p>
+                    </div>
+
+                    <div class="bg-slate-900 border border-slate-800 p-6 rounded-3xl space-y-6 shadow-xl">
+                        <div class="space-y-2">
+                            <label class="block text-xs font-bold uppercase tracking-wider text-slate-300">1. Enter School Enrollment Code</label>
+                            <div class="flex gap-3">
+                                <input type="text" id="enrollmentCodeInput" value="RUS-8942-ICT" class="flex-grow bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 font-mono text-center text-lg font-bold tracking-widest text-brand-400 focus:ring-2 focus:ring-brand-500 focus:outline-none">
+                                <button onclick="submitDeviceEnrollment()" class="px-6 py-3 bg-brand-600 hover:bg-brand-500 text-white font-bold rounded-xl text-xs">Enroll Device</button>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- VIEW 10: STUDENT DASHBOARD -->
+                <section id="view-student-dash" class="view-panel hidden space-y-6 max-w-3xl mx-auto">
+                    <div id="student-active-banner" class="hidden p-4 rounded-2xl bg-gradient-to-r from-amber-950 via-rose-950 to-slate-900 border-2 border-rose-500 animate-pulse-slow shadow-2xl space-y-3">
+                        <div class="flex items-start justify-between">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-xl bg-rose-500 text-white flex items-center justify-center font-bold text-lg">
+                                    <i class="fa-solid fa-eye"></i>
+                                </div>
+                                <div>
+                                    <h3 class="font-black text-rose-200 text-sm uppercase">⚠️ SCREEN SHARING ACTIVE — Rusinga Classroom</h3>
+                                    <p class="text-xs text-rose-300">Your screen is currently being viewed by authorized teacher Mr. John Davis.</p>
+                                </div>
+                            </div>
+                            <span class="text-[10px] font-mono px-2 py-1 bg-rose-900/80 text-rose-200 rounded border border-rose-700">LIVE</span>
+                        </div>
+                    </div>
+
+                    <div id="student-focus-banner" class="hidden p-4 rounded-2xl bg-indigo-950 border border-indigo-500/50 text-indigo-200 text-xs flex items-center gap-3">
+                        <i class="fa-solid fa-bullseye text-indigo-400 text-lg"></i>
+                        <span><strong>Focus Mode Active:</strong> Classroom policies restricting distracting social media endpoints are currently enforced.</span>
+                    </div>
+
+                    <div class="p-6 rounded-3xl bg-slate-900 border border-slate-800 space-y-6">
+                        <div class="flex items-center justify-between border-b border-slate-800 pb-4">
+                            <div class="flex items-center gap-3">
+                                <div class="w-12 h-12 rounded-2xl bg-brand-600/20 text-brand-400 border border-brand-500/30 flex items-center justify-center text-2xl font-bold">
+                                    <i class="fa-solid fa-laptop"></i>
+                                </div>
+                                <div>
+                                    <h3 class="font-extrabold text-lg text-white">Alex Rivera's MacBook Air</h3>
+                                    <p class="text-xs text-slate-400">BYOD Personal Device • Enrolled in Rusinga High</p>
+                                </div>
+                            </div>
+                            <span class="px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-bold border border-emerald-500/30">Connected</span>
+                        </div>
+
+                        <div class="flex flex-wrap gap-2 pt-2">
+                            <button onclick="simulateTeacherStartView()" class="px-3 py-2 bg-amber-500/20 text-amber-400 border border-amber-500/30 hover:bg-amber-500 hover:text-white rounded-xl text-xs font-bold">
+                                <i class="fa-solid fa-play mr-1"></i> Trigger Screen Monitoring
+                            </button>
+                            <button onclick="simulateTeacherStopView()" class="px-3 py-2 bg-slate-800 text-slate-300 border border-slate-700 hover:bg-slate-700 rounded-xl text-xs font-bold">
+                                <i class="fa-solid fa-stop mr-1"></i> Stop Monitoring
+                            </button>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- VIEW 11: ADMIN SETTINGS -->
+                <section id="view-admin-settings" class="view-panel hidden space-y-6 max-w-4xl mx-auto">
+                    <div class="p-6 rounded-3xl bg-slate-900 border border-slate-800 space-y-6">
+                        <h2 class="text-xl font-black text-white flex items-center gap-2 border-b border-slate-800 pb-4">
+                            <i class="fa-solid fa-sliders text-indigo-400"></i> School ICT Domain & Policy Settings
+                        </h2>
+
+                        <!-- Domain Configuration -->
+                        <div class="space-y-4">
+                            <h3 class="font-bold text-sm text-slate-200">Approved School Registration Domains</h3>
+                            <div id="domain-pills-container" class="flex flex-wrap gap-2">
+                                <!-- Dynamic Domain Pills -->
+                            </div>
+                            <form onsubmit="addNewApprovedDomain(event)" class="flex gap-2">
+                                <input type="text" id="new-domain-input" placeholder="e.g. makini.com or student.rusinga.ac.ke" class="flex-grow bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white">
+                                <button type="submit" class="px-4 py-2 bg-brand-600 hover:bg-brand-500 text-white font-bold text-xs rounded-xl">Add Domain</button>
+                            </form>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- VIEW 12: AUDIT LOGS -->
+                <section id="view-audit-logs" class="view-panel hidden space-y-6">
+                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                        <div>
+                            <h2 class="text-xl font-black text-white flex items-center gap-2">
+                                <i class="fa-solid fa-receipt text-brand-500"></i> Immutable Security Audit Log
+                            </h2>
+                            <p class="text-xs text-slate-400">Every screen view, lock event, and domain update is permanently recorded.</p>
+                        </div>
+                        <button onclick="exportAuditLogsCSV()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white rounded-xl text-xs font-bold">Export Audit Log (CSV)</button>
+                    </div>
+
+                    <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-x-auto shadow-xl">
+                        <table class="w-full text-left text-xs">
+                            <thead class="bg-slate-950 text-slate-400 uppercase tracking-wider font-mono text-[10px] border-b border-slate-800">
+                                <tr>
+                                    <th class="p-3.5">Timestamp</th>
+                                    <th class="p-3.5">Action Event</th>
+                                    <th class="p-3.5">Administrator</th>
+                                    <th class="p-3.5">Target Student</th>
+                                    <th class="p-3.5">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="audit-log-rows" class="divide-y divide-slate-800 text-slate-300">
+                                <!-- Dynamic audit rows -->
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <!-- VIEW 13: PRIVACY SPECS -->
+                <section id="view-privacy" class="view-panel hidden space-y-6 max-w-4xl mx-auto">
+                    <div class="p-8 rounded-3xl bg-slate-900 border border-slate-800 space-y-6">
+                        <h2 class="text-2xl font-black text-white">Privacy & Legal Protection Architecture</h2>
+                        <p class="text-xs text-slate-300 leading-relaxed">
+                            SchoolWatch is engineered strictly for authorized classroom visibility. Webcams, microphones, keystroke loggers, and stealth background monitoring are hard-coded disabled.
+                        </p>
+                    </div>
+                </section>
+
+            </main>
+        </div>
+    </div>
+
+    <!-- AUTHENTICATION & SIGN UP MODAL -->
+    <div id="auth-modal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md hidden flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl max-w-md w-full p-6 space-y-6 shadow-2xl relative">
+            <button onclick="closeAuthModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+            
+            <div class="text-center space-y-2">
+                <div class="w-12 h-12 rounded-2xl bg-brand-600/20 text-brand-400 border border-brand-500/30 flex items-center justify-center text-xl mx-auto font-bold">
+                    <i class="fa-solid fa-school"></i>
+                </div>
+                <h3 id="auth-modal-title" class="font-black text-xl text-white">SchoolWatch Sign In</h3>
+                <p id="auth-modal-subtitle" class="text-xs text-slate-400">Enter your approved school email address to proceed.</p>
+            </div>
+
+            <!-- Auth Mode Switch Tabs -->
+            <div class="flex rounded-xl bg-slate-950 p-1 border border-slate-800 text-xs font-bold">
+                <button id="auth-tab-login" onclick="setAuthMode('login')" class="flex-1 py-1.5 rounded-lg bg-brand-600 text-white transition-all">Sign In</button>
+                <button id="auth-tab-signup" onclick="setAuthMode('signup')" class="flex-1 py-1.5 rounded-lg text-slate-400 hover:text-white transition-all">Create Account</button>
+            </div>
+
+            <form onsubmit="handleAuthSubmit(event)" class="space-y-4 text-xs">
+                <div id="signup-name-field" class="hidden">
+                    <label class="block font-bold text-slate-300 mb-1">Full Name</label>
+                    <input type="text" id="auth-name-input" placeholder="e.g. Samuel Awodumila" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-white focus:ring-2 focus:ring-brand-500">
+                </div>
+
+                <div>
+                    <label class="block font-bold text-slate-300 mb-1">School Email Address</label>
+                    <input type="email" id="auth-email-input" placeholder="e.g. samuel.awodumila@student.rusinga.ac.ke" required class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-white focus:ring-2 focus:ring-brand-500 font-mono">
+                    <p class="text-[10px] text-slate-400 mt-1">Allowed Domains: <span class="text-amber-400 font-mono" id="auth-allowed-domains-hint">.rusinga.ac.ke, .makini.ac.ke, .gmail.com</span></p>
+                </div>
+
+                <div id="signup-job-field" class="hidden">
+                    <label class="block font-bold text-slate-300 mb-1">Department / Grade Level</label>
+                    <input type="text" id="auth-job-input" placeholder="e.g. Form 4 Computer Science" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-white focus:ring-2 focus:ring-brand-500">
+                </div>
+
+                <div>
+                    <label class="block font-bold text-slate-300 mb-1">Select School Role</label>
+                    <select id="auth-role-select" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-white">
+                        <option value="student">Student Account</option>
+                        <option value="teacher">Teacher Account</option>
+                        <option value="school_admin">ICT Administrator</option>
+                    </select>
+                </div>
+
+                <button type="submit" id="auth-submit-btn" class="w-full py-3 bg-gradient-to-r from-brand-600 to-tealAccent-600 text-white font-bold rounded-xl text-xs hover:opacity-95 shadow-lg transition-all">
+                    Authenticate & Access
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- GOOGLE CLASSROOM MODAL -->
+    <div id="gclassroom-modal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md hidden flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl max-w-lg w-full p-6 space-y-6 shadow-2xl relative text-xs">
+            <button onclick="closeGoogleClassroomModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+            
+            <div class="flex items-center gap-3 border-b border-slate-800 pb-4">
+                <div class="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center justify-center text-xl font-bold">
+                    <i class="fa-brands fa-google"></i>
+                </div>
+                <div>
+                    <h3 class="font-black text-lg text-white">Google Classroom Sync</h3>
+                    <p class="text-slate-400">Rusinga & Makini Workspace Integration</p>
+                </div>
+            </div>
+
+            <p class="text-slate-300 leading-relaxed">Import rosters directly from your connected Google Classroom courses into SchoolWatch live monitoring rooms.</p>
+
+            <button onclick="syncGoogleClassroomNow()" class="w-full py-3 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold rounded-xl flex items-center justify-center gap-2 shadow-lg">
+                <i class="fa-solid fa-rotate"></i> Re-Sync Google Classroom Rosters
+            </button>
+        </div>
+    </div>
+
+    <!-- CREATE GROUP CHAT MODAL -->
+    <div id="create-group-modal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md hidden flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl max-w-md w-full p-6 space-y-4 shadow-2xl relative text-xs">
+            <button onclick="closeCreateGroupModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+            
+            <h3 class="font-bold text-white text-base">Create New School Channel</h3>
+            <div>
+                <label class="block font-bold text-slate-300 mb-1">Channel Name</label>
+                <input type="text" id="new-channel-name-input" placeholder="e.g. form-4-cs-projects" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white">
+            </div>
+            <button onclick="submitNewChannel()" class="w-full py-2.5 bg-brand-600 hover:bg-brand-500 text-white font-bold rounded-xl">Create Channel</button>
+        </div>
+    </div>
+
+    <!-- SCREEN INSPECTION MODAL -->
+    <div id="screen-inspection-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md hidden flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl max-w-4xl w-full overflow-hidden flex flex-col max-h-[90vh] shadow-2xl">
+            <div class="p-4 bg-slate-950 border-b border-slate-800 flex justify-between items-center text-xs">
+                <div class="flex items-center gap-3">
+                    <span class="w-3 h-3 rounded-full bg-rose-500 animate-ping"></span>
+                    <div>
+                        <h3 id="modal-student-name" class="font-bold text-white text-sm">Inspecting Student Screen</h3>
+                        <p id="modal-device-info" class="text-slate-400 text-[10px]">MacBook Air • macOS Sequoia</p>
+                    </div>
+                </div>
+                <button onclick="closeScreenInspectionModal()" class="w-8 h-8 rounded-lg bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <div class="relative bg-slate-950 flex-grow p-6 min-h-[300px] flex items-center justify-center screen-watermark">
+                <div class="w-full max-w-2xl bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4 text-slate-300 font-mono text-xs">
+                    <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                        <span class="text-brand-400 font-bold"><i class="fa-solid fa-code"></i> Python_Assignment_Lab.py</span>
+                        <span class="text-slate-500">Student Active Screen View</span>
+                    </div>
+                    <pre class="text-emerald-400 bg-slate-950 p-4 rounded-xl border border-slate-800">
+def process_data(records):
+    # Rusinga & Makini High School CS Lab
+    return [r.strip().upper() for r in records]
+
+print("Roster Active")
+                    </pre>
+                </div>
+            </div>
+
+            <div class="p-4 bg-slate-950 border-t border-slate-800 flex justify-end gap-3 text-xs">
+                <button onclick="stopModalViewingSession()" class="px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl flex items-center gap-2">
+                    <i class="fa-solid fa-stop-circle"></i> End Screen Session
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const state = {
+            authMode: 'login', // 'login' or 'signup'
+            activeRole: 'samuel_admin',
+            currentView: 'dashboard',
+            activeClassFilter: 'cs101',
+            currentUserEmail: 'samuel.awodumila@student.rusinga.ac.ke',
+            isSamuelMaster: true,
+            isKeyboardLocked: false,
+            isFocusMode: false,
+            activeViewingModalStudentId: null,
+            approvedDomains: ['rusinga.ac.ke', 'student.rusinga.ac.ke', 'makini.ac.ke', 'makini.com', 'gmail.com'],
+            pendingApprovals: [
+                { id: 1, name: 'David Kimani', email: 'david.kimani@student.rusinga.ac.ke', role: 'student', job: 'Form 3 Computer Science' },
+                { id: 2, name: 'Grace Wambui', email: 'grace.wambui@makini.ac.ke', role: 'teacher', job: 'Mathematics Dept Lead' }
+            ],
+            roomCodes: [
+                { code: 'RUS-8942-ICT', teacher: 'Mr. John Davis', class: 'Period 3 AP CS', expires: '12 mins left', activeStudents: 3 },
+                { code: 'MAK-4410-MATH', teacher: 'Ms. Sarah Vance', class: 'Form 2 Mathematics', expires: '28 mins left', activeStudents: 5 }
+            ],
+            chatChannels: [
+                { id: 'teachers-only', name: '# teachers-staff-only', official: true },
+                { id: 'general-school', name: '# general-school-announcements', official: true },
+                { id: 'ap-cs-class', name: '# ap-computer-science-a', official: false }
+            ],
+            activeChatChannel: 'teachers-only',
+            chatMessages: {
+                'teachers-only': [
+                    { sender: 'Mr. John Davis', text: 'Good morning staff, Period 3 computer lab monitoring is active.', time: '08:30 AM' },
+                    { sender: 'Ms. Sarah Vance', text: 'Understood. Form 2 math room codes generated.', time: '08:32 AM' }
+                ],
+                'general-school': [
+                    { sender: 'ICT Admin', text: 'System update completed. 100,000+ roster capacity active.', time: '08:00 AM' }
+                ],
+                'ap-cs-class': [
+                    { sender: 'Alex Rivera', text: 'Are we opening the Python lab script now?', time: '08:40 AM' }
+                ]
+            },
+            bannedAlerts: [
+                { id: 101, student: 'Alex Rivera', device: 'MacBook Air', time: '14:02:10', type: 'Instagram Message Alert', desc: 'Received Instagram DM notification popup during active lesson.', severity: 'high' },
+                { id: 102, student: 'Ethan Hunt', device: 'Galaxy Tab S9', time: '13:58:45', type: 'Unapproved Social Media Website', desc: 'Attempted access to TikTok web endpoint.', severity: 'critical' },
+                { id: 103, student: 'Marcus Vance', device: 'iPad Air 5', time: '13:40:12', type: 'Low Battery Warning', desc: 'Device battery dropped below 15%.', severity: 'low' }
+            ],
+            students: [
+                { id: 1, name: 'Alex Rivera', classId: 'cs101', device: 'MacBook Air', os: 'mac', osName: 'macOS Sequoia', status: 'online', isSharing: true, battery: 88, signal: 3, ownership: 'BYOD' },
+                { id: 2, name: 'Jordan Chen', classId: 'cs101', device: 'Dell XPS 13', os: 'windows', osName: 'Windows 11', status: 'online', isSharing: false, battery: 64, signal: 3, ownership: 'School-Owned' },
+                { id: 3, name: 'Taylor Swift', classId: 'cs101', device: 'Chromebook 11', os: 'chromebook', osName: 'ChromeOS', status: 'online', isSharing: true, battery: 92, signal: 2, ownership: 'School-Owned' },
+                { id: 4, name: 'Marcus Vance', classId: 'cs101', device: 'iPad Air 5', os: 'ios', osName: 'iPadOS 18', status: 'online', isSharing: false, battery: 45, signal: 3, ownership: 'BYOD' },
+                { id: 5, name: 'Sophia Martinez', classId: 'cs101', device: 'Lenovo ThinkPad', os: 'windows', osName: 'Windows 11', status: 'offline', isSharing: false, battery: 10, signal: 0, ownership: 'School-Owned' },
+                { id: 6, name: 'Ethan Hunt', classId: 'cs101', device: 'Galaxy Tab S9', os: 'android', osName: 'Android 15', status: 'online', isSharing: false, battery: 78, signal: 2, ownership: 'BYOD' },
+                { id: 7, name: 'Emma Watson', classId: 'math10', device: 'HP Chromebook', os: 'chromebook', osName: 'ChromeOS', status: 'online', isSharing: false, battery: 95, signal: 3, ownership: 'School-Owned' },
+                { id: 8, name: 'Liam Neeson', classId: 'math10', device: 'MacBook Pro 14', os: 'mac', osName: 'macOS Sequoia', status: 'online', isSharing: false, battery: 81, signal: 3, ownership: 'BYOD' },
+            ],
+            auditLogs: [
+                { timestamp: '14:02:12', action: 'SCREEN_VIEW_START', admin: 'Mr. John Davis', target: 'Alex Rivera', status: 'AUTHORIZED' },
+                { timestamp: '13:45:00', action: 'DEVICE_ENROLLED', admin: 'Self-Enrollment', target: 'Jordan Chen', status: 'SUCCESS' },
+                { timestamp: '11:15:33', action: 'POLICY_UPDATE', admin: 'Samuel Awodumila', target: 'District Settings', status: 'APPLIED' }
+            ]
+        };
+
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            if (!container) return;
+            const toast = document.createElement('div');
+            toast.className = `p-4 rounded-xl shadow-2xl text-xs font-bold text-white flex items-center justify-between pointer-events-auto transition-all duration-300 border ${
+                type === 'success' ? 'bg-emerald-900/90 border-emerald-500' :
+                type === 'error' ? 'bg-rose-900/90 border-rose-500' : 'bg-slate-900/90 border-slate-700'
+            }`;
+            toast.innerHTML = `<span>${message}</span><button onclick="this.parentElement.remove()" class="ml-3 text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>`;
+            container.appendChild(toast);
+            setTimeout(() => toast.remove(), 4000);
+        }
+
+        function switchView(viewId) {
+            document.querySelectorAll('.view-panel').forEach(panel => panel.classList.add('hidden'));
+            const target = document.getElementById(`view-${viewId}`);
+            if (target) target.classList.remove('hidden');
+
+            document.querySelectorAll('.nav-item').forEach(btn => {
+                btn.classList.remove('bg-brand-600/20', 'text-brand-400', 'border', 'border-brand-500/30');
+                btn.classList.add('text-slate-400');
+            });
+            const navBtn = document.getElementById(`nav-${viewId}`);
+            if (navBtn) {
+                navBtn.classList.add('bg-brand-600/20', 'text-brand-400', 'border', 'border-brand-500/30');
+                navBtn.classList.remove('text-slate-400');
+            }
+
+            state.currentView = viewId;
+            document.getElementById('current-view-name').innerText = viewId.replace('-', ' ');
+
+            if (viewId === 'approval-queue') renderApprovalQueue();
+            if (viewId === 'classroom') renderStudentsGrid();
+            if (viewId === 'live-grid') renderLiveGrid();
+            if (viewId === 'room-codes') renderRoomCodes();
+            if (viewId === 'group-chat') renderGroupChat();
+            if (viewId === 'banned-alerts') renderBannedAlerts();
+            if (viewId === 'admin-settings') renderAdminSettings();
+            if (viewId === 'audit-logs') renderAuditLogs();
+        }
+
+        function toggleSidebar() {
+            document.getElementById('sidebar-menu').classList.toggle('-translate-x-full');
+        }
+
+        function toggleTheme() {
+            document.documentElement.classList.toggle('dark');
+            showToast('Switched visual theme mode');
+        }
+
+        function changeActiveRole(role) {
+            state.activeRole = role;
+            if (role === 'samuel_admin') {
+                state.currentUserEmail = 'samuel.awodumila@student.rusinga.ac.ke';
+                state.isSamuelMaster = true;
+                document.getElementById('samuel-master-badge').classList.remove('hidden');
+                document.getElementById('admin-unlock-btn').classList.remove('hidden');
+            } else {
+                state.isSamuelMaster = false;
+                document.getElementById('samuel-master-badge').classList.add('hidden');
+                document.getElementById('admin-unlock-btn').classList.add('hidden');
+            }
+            showToast(`Switched active portal view role to ${role}`);
+        }
+
+        function validateSchoolEmailDomain(email) {
+            const domain = email.split('@')[1];
+            if (!domain) return false;
+            return state.approvedDomains.some(d => domain.toLowerCase().endsWith(d.toLowerCase()));
+        }
+
+        function setAuthMode(mode) {
+            state.authMode = mode;
+            const isSignup = mode === 'signup';
+            document.getElementById('signup-name-field').classList.toggle('hidden', !isSignup);
+            document.getElementById('signup-job-field').classList.toggle('hidden', !isSignup);
+            document.getElementById('auth-modal-title').innerText = isSignup ? 'Create SchoolWatch Account' : 'SchoolWatch Sign In';
+            document.getElementById('auth-submit-btn').innerText = isSignup ? 'Submit Account Registration' : 'Authenticate & Access';
+            document.getElementById('auth-tab-login').className = isSignup ? 'flex-1 py-1.5 rounded-lg text-slate-400 hover:text-white transition-all' : 'flex-1 py-1.5 rounded-lg bg-brand-600 text-white transition-all';
+            document.getElementById('auth-tab-signup').className = isSignup ? 'flex-1 py-1.5 rounded-lg bg-brand-600 text-white transition-all' : 'flex-1 py-1.5 rounded-lg text-slate-400 hover:text-white transition-all';
+        }
+
+        function openAuthModal(mode = 'login') {
+            setAuthMode(mode);
+            document.getElementById('auth-allowed-domains-hint').innerText = state.approvedDomains.map(d => '.' + d).join(', ');
+            document.getElementById('auth-modal').classList.remove('hidden');
+        }
+
+        function closeAuthModal() {
+            document.getElementById('auth-modal').classList.add('hidden');
+        }
+
+        function handleAuthSubmit(e) {
+            e.preventDefault();
+            const email = document.getElementById('auth-email-input').value.trim();
+            const name = document.getElementById('auth-name-input').value.trim() || 'User';
+            const role = document.getElementById('auth-role-select').value;
+            const job = document.getElementById('auth-job-input').value.trim() || 'Student Roster';
+
+            if (!validateSchoolEmailDomain(email)) {
+                showToast(`Invalid email domain! Must belong to approved school domains: ${state.approvedDomains.join(', ')}`, 'error');
+                return;
+            }
+
+            if (state.authMode === 'signup') {
+                state.pendingApprovals.unshift({ id: Date.now(), name, email, role, job });
+                showToast('Registration submitted! Account is pending ICT Admin approval.', 'success');
+                renderApprovalQueue();
+                closeAuthModal();
+                return;
+            }
+
+            state.currentUserEmail = email;
+            if (email.toLowerCase() === 'samuel.awodumila@student.rusinga.ac.ke') {
+                state.isSamuelMaster = true;
+                state.activeRole = 'samuel_admin';
+                document.getElementById('samuel-master-badge').classList.remove('hidden');
+                document.getElementById('roleSelector').value = 'samuel_admin';
+                showToast('Welcome Samuel Awodumila! Master Shutdown privileges granted.', 'success');
+            } else {
+                state.isSamuelMaster = false;
+                document.getElementById('samuel-master-badge').classList.add('hidden');
+                changeActiveRole(role);
+                showToast(`Authenticated as ${name}`, 'success');
+            }
+
+            document.getElementById('user-name-display').innerText = name;
+            closeAuthModal();
+        }
+
+        function renderApprovalQueue() {
+            const container = document.getElementById('approval-queue-rows');
+            const label = document.getElementById('approval-domains-label');
+            if (label) label.innerText = state.approvedDomains.join(', ');
+            if (!container) return;
+
+            document.getElementById('dash-pending-count').innerText = state.pendingApprovals.length;
+            document.getElementById('pending-users-badge').innerText = `${state.pendingApprovals.length} Pending`;
+
+            if (state.pendingApprovals.length === 0) {
+                container.innerHTML = `<tr><td colspan="5" class="p-6 text-center text-slate-500">No pending account registrations in approval queue.</td></tr>`;
+                return;
+            }
+
+            container.innerHTML = state.pendingApprovals.map(u => `
+                <tr>
+                    <td class="p-3.5 font-bold text-white">${u.name}</td>
+                    <td class="p-3.5 font-mono text-brand-400">${u.email}</td>
+                    <td class="p-3.5 capitalize"><span class="px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">${u.role}</span></td>
+                    <td class="p-3.5 text-slate-400">${u.job}</td>
+                    <td class="p-3.5 text-right space-x-2">
+                        <button onclick="approveUserRegistration(${u.id})" class="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[10px] rounded-lg shadow-sm">
+                            <i class="fa-solid fa-check mr-1"></i> Approve
+                        </button>
+                        <button onclick="rejectUserRegistration(${u.id})" class="px-3 py-1 bg-rose-600 hover:bg-rose-500 text-white font-bold text-[10px] rounded-lg shadow-sm">
+                            <i class="fa-solid fa-xmark mr-1"></i> Reject
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function approveUserRegistration(id) {
+            const user = state.pendingApprovals.find(u => u.id === id);
+            if (user) {
+                state.pendingApprovals = state.pendingApprovals.filter(u => u.id !== id);
+                showToast(`Approved registration for ${user.name}`, 'success');
+                addAuditLog('USER_APPROVED', 'ICT Admin', user.email);
+                renderApprovalQueue();
+            }
+        }
+
+        function rejectUserRegistration(id) {
+            state.pendingApprovals = state.pendingApprovals.filter(u => u.id !== id);
+            showToast('User registration rejected', 'error');
+            renderApprovalQueue();
+        }
+
+        function toggleKeyboardLock(lock) {
+            state.isKeyboardLocked = lock;
+            document.getElementById('keyboard-lock-overlay').classList.toggle('hidden', !lock);
+            if (lock) {
+                showToast('🚨 SYSTEM KEYBOARD LOCKOUT TRIGGERED!', 'error');
+                addAuditLog('KEYBOARD_LOCK_TRIGGERED', 'Admin', 'All Active Devices');
+            } else {
+                showToast('Keyboard lockout released', 'success');
+            }
+        }
+
+        function toggleFocusMode() {
+            state.isFocusMode = !state.isFocusMode;
+            const btn = document.getElementById('focus-mode-toggle-btn');
+            const studentBanner = document.getElementById('student-focus-banner');
+            if (btn) {
+                btn.className = state.isFocusMode 
+                    ? 'px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-xs font-bold transition-all shadow-md'
+                    : 'px-3 py-1.5 bg-indigo-500/10 border border-indigo-500/30 text-indigo-400 hover:bg-indigo-500 hover:text-white rounded-lg text-xs font-bold transition-all';
+            }
+            if (studentBanner) studentBanner.classList.toggle('hidden', !state.isFocusMode);
+            showToast(`Focus mode ${state.isFocusMode ? 'ENABLED' : 'DISABLED'} for active class`, state.isFocusMode ? 'success' : 'info');
+        }
+
+        function triggerSamuelMasterLockdown() {
+            if (!state.isSamuelMaster && state.currentUserEmail.toLowerCase() !== 'samuel.awodumila@student.rusinga.ac.ke') {
+                showToast('ACCESS DENIED: Master Shutdown privilege is exclusively reserved for Samuel Awodumila.', 'error');
+                return;
+            }
+            bulkStopAllSharing();
+            toggleKeyboardLock(true);
+            showToast('🚨 EMERGENCY MASTER SHUTDOWN ACTIVATED! All screen sessions terminated.', 'error');
+            addAuditLog('MASTER_SYSTEM_SHUTDOWN', 'Samuel Awodumila', 'All Network Devices');
+        }
+
+        function renderStudentsGrid() {
+            const grid = document.getElementById('students-grid');
+            if (!grid) return;
+
+            const filtered = state.students.filter(s => s.classId === state.activeClassFilter);
+            grid.innerHTML = filtered.map(s => `
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4 hover:border-slate-700 transition-all shadow-lg flex flex-col justify-between">
+                    <div class="flex items-start justify-between">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center font-bold text-lg text-brand-400">
+                                <i class="fa-solid fa-laptop"></i>
+                            </div>
+                            <div>
+                                <h4 class="font-bold text-white text-sm">${s.name}</h4>
+                                <p class="text-[11px] text-slate-400">${s.device} • ${s.ownership}</p>
+                            </div>
+                        </div>
+                        <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${s.status === 'online' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-800 text-slate-500'}">
+                            ${s.status}
+                        </span>
+                    </div>
+
+                    <div class="flex items-center justify-between text-xs pt-2 border-t border-slate-800">
+                        <span class="text-slate-400">Sharing: <strong class="${s.isSharing ? 'text-amber-400' : 'text-slate-500'}">${s.isSharing ? 'ACTIVE' : 'OFF'}</strong></span>
+                        ${s.isSharing 
+                            ? `<button onclick="inspectStudentScreen(${s.id})" class="px-3 py-1 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold rounded-lg">View Screen</button>`
+                            : `<button onclick="requestScreenView(${s.id})" class="px-3 py-1 bg-brand-600 hover:bg-brand-500 text-white font-bold rounded-lg">Request View</button>`
+                        }
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function filterClassroom(val) {
+            state.activeClassFilter = val;
+            renderStudentsGrid();
+        }
+
+        function requestScreenView(id) {
+            const student = state.students.find(s => s.id === id);
+            if (!student) return;
+            student.isSharing = true;
+            showToast(`Screen viewing requested for ${student.name}`, 'success');
+            addAuditLog('SCREEN_VIEW_START', 'Teacher', student.name);
+            renderStudentsGrid();
+            updateSharingBadges();
+        }
+
+        function inspectStudentScreen(id) {
+            const student = state.students.find(s => s.id === id);
+            if (!student) return;
+            state.activeViewingModalStudentId = id;
+            document.getElementById('modal-student-name').innerText = `Inspecting ${student.name}'s Screen`;
+            document.getElementById('modal-device-info').innerText = `${student.device} • ${student.osName}`;
+            document.getElementById('screen-inspection-modal').classList.remove('hidden');
+        }
+
+        function closeScreenInspectionModal() {
+            document.getElementById('screen-inspection-modal').classList.add('hidden');
+        }
+
+        function stopModalViewingSession() {
+            if (state.activeViewingModalStudentId) {
+                const student = state.students.find(s => s.id === state.activeViewingModalStudentId);
+                if (student) {
+                    student.isSharing = false;
+                    showToast(`Stopped viewing screen for ${student.name}`);
+                    addAuditLog('SCREEN_VIEW_STOP', 'Teacher', student.name);
+                }
+            }
+            closeScreenInspectionModal();
+            renderStudentsGrid();
+            updateSharingBadges();
+        }
+
+        function renderLiveGrid() {
+            const container = document.getElementById('live-screens-container');
+            if (!container) return;
+            const sharing = state.students.filter(s => s.isSharing);
+
+            if (sharing.length === 0) {
+                container.innerHTML = `<div class="col-span-2 text-center text-slate-500 py-12">No active screen views. Request viewing from Classroom View.</div>`;
+                return;
+            }
+
+            container.innerHTML = sharing.map(s => `
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3">
+                    <div class="flex justify-between items-center text-xs">
+                        <span class="font-bold text-white"><i class="fa-solid fa-desktop text-amber-400 mr-2"></i> ${s.name} (${s.device})</span>
+                        <button onclick="inspectStudentScreen(${s.id})" class="px-2 py-1 bg-amber-500 text-slate-950 font-bold rounded">Expand</button>
+                    </div>
+                    <div class="bg-slate-950 p-6 rounded-xl text-center font-mono text-xs text-emerald-400 border border-slate-800">
+                        [LIVE HD STREAMING] — ${s.name} Active Task View
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function renderRoomCodes() {
+            const container = document.getElementById('active-codes-grid');
+            if (!container) return;
+            container.innerHTML = state.roomCodes.map(rc => `
+                <div class="p-4 rounded-2xl bg-slate-950 border border-amber-500/30 space-y-2 text-xs">
+                    <div class="flex justify-between items-center">
+                        <span class="font-mono text-lg font-black text-amber-400">${rc.code}</span>
+                        <span class="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 font-bold">${rc.expires}</span>
+                    </div>
+                    <p class="text-slate-300">Teacher: ${rc.teacher} | Class: ${rc.class}</p>
+                    <button onclick="copyRoomCode('${rc.code}')" class="text-brand-400 underline hover:text-white">Copy Code</button>
+                </div>
+            `).join('');
+        }
+
+        function createNewClassCode() {
+            const code = 'RUS-' + Math.floor(1000 + Math.random() * 9000) + '-ICT';
+            state.roomCodes.unshift({ code, teacher: 'Mr. John Davis', class: 'Period 3 AP CS', expires: '30 mins left', activeStudents: 0 });
+            renderRoomCodes();
+            showToast(`Generated Class Join Code: ${code}`, 'success');
+        }
+
+        function copyRoomCode(code) {
+            const el = document.createElement('textarea');
+            el.value = code;
+            document.body.appendChild(el);
+            el.select();
+            document.execCommand('copy');
+            document.body.removeChild(el);
+            showToast(`Copied ${code} to clipboard!`, 'success');
+        }
+
+        function renderGroupChat() {
+            const channelsContainer = document.getElementById('chat-channels-list');
+            const messagesFeed = document.getElementById('chat-messages-feed');
+            if (!channelsContainer || !messagesFeed) return;
+
+            channelsContainer.innerHTML = state.chatChannels.map(c => `
+                <button onclick="switchChatChannel('${c.id}')" class="w-full text-left px-3 py-2 rounded-xl text-xs font-semibold flex items-center justify-between transition-all ${state.activeChatChannel === c.id ? 'bg-brand-600/20 text-brand-400 border border-brand-500/30' : 'text-slate-400 hover:bg-slate-900 hover:text-white'}">
+                    <span class="truncate">${c.name}</span>
+                    ${c.official ? '<i class="fa-solid fa-shield text-[10px] text-amber-400"></i>' : ''}
+                </button>
+            `).join('');
+
+            const msgs = state.chatMessages[state.activeChatChannel] || [];
+            messagesFeed.innerHTML = msgs.map(m => `
+                <div class="p-3 rounded-2xl bg-slate-950 border border-slate-800 space-y-1 text-xs">
+                    <div class="flex justify-between items-center">
+                        <span class="font-bold text-brand-400">${m.sender}</span>
+                        <span class="text-[10px] text-slate-500">${m.time}</span>
+                    </div>
+                    <p class="text-slate-300 leading-relaxed">${m.text}</p>
+                </div>
+            `).join('');
+        }
+
+        function switchChatChannel(id) {
+            state.activeChatChannel = id;
+            const chan = state.chatChannels.find(c => c.id === id);
+            if (chan) document.getElementById('active-chat-channel-title').innerText = chan.name;
+            renderGroupChat();
+        }
+
+        function sendChatMessage(e) {
+            e.preventDefault();
+            const input = document.getElementById('chat-input-field');
+            const text = input.value.trim();
+            if (!text) return;
+
+            if (!state.chatMessages[state.activeChatChannel]) {
+                state.chatMessages[state.activeChatChannel] = [];
+            }
+
+            const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            state.chatMessages[state.activeChatChannel].push({
+                sender: state.isSamuelMaster ? 'Samuel Awodumila (Master)' : 'Staff Member',
+                text,
+                time
+            });
+
+            input.value = '';
+            renderGroupChat();
+        }
+
+        function openCreateGroupModal() {
+            document.getElementById('create-group-modal').classList.remove('hidden');
+        }
+
+        function closeCreateGroupModal() {
+            document.getElementById('create-group-modal').classList.add('hidden');
+        }
+
+        function submitNewChannel() {
+            const name = document.getElementById('new-channel-name-input').value.trim();
+            if (!name) return;
+            const id = name.toLowerCase().replace(/\s+/g, '-');
+            state.chatChannels.push({ id, name: `# ${id}`, official: false });
+            switchChatChannel(id);
+            closeCreateGroupModal();
+            showToast(`Created new channel ${name}`, 'success');
+        }
+
+        function renderBannedAlerts() {
+            const container = document.getElementById('banned-activity-list');
+            if (!container) return;
+            container.innerHTML = state.bannedAlerts.map(a => `
+                <div class="p-4 rounded-2xl bg-slate-950 border border-rose-500/30 flex justify-between items-center text-xs">
+                    <div>
+                        <h4 class="font-bold text-white">${a.type}</h4>
+                        <p class="text-slate-400">${a.desc}</p>
+                        <p class="text-[10px] text-brand-400">Student: ${a.student} (${a.device})</p>
+                    </div>
+                    <button onclick="requestScreenViewByName('${a.student}')" class="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-lg">Inspect</button>
+                </div>
+            `).join('');
+        }
+
+        function requestScreenViewByName(name) {
+            const student = state.students.find(s => s.name === name);
+            if (student) requestScreenView(student.id);
+        }
+
+        function clearAlertsFeed() {
+            state.bannedAlerts = [];
+            renderBannedAlerts();
+            showToast('Alerts cleared');
+        }
+
+        function renderAdminSettings() {
+            const container = document.getElementById('domain-pills-container');
+            if (!container) return;
+            container.innerHTML = state.approvedDomains.map(d => `
+                <span class="px-3 py-1.5 rounded-xl bg-indigo-950 border border-indigo-500/40 text-indigo-300 font-mono text-xs flex items-center gap-2">
+                    ${d}
+                    <button onclick="removeApprovedDomain('${d}')" class="text-slate-400 hover:text-rose-400"><i class="fa-solid fa-xmark"></i></button>
+                </span>
+            `).join('');
+        }
+
+        function addNewApprovedDomain(e) {
+            e.preventDefault();
+            const input = document.getElementById('new-domain-input');
+            const domain = input.value.trim().toLowerCase();
+            if (domain && !state.approvedDomains.includes(domain)) {
+                state.approvedDomains.push(domain);
+                input.value = '';
+                renderAdminSettings();
+                renderApprovalQueue();
+                showToast(`Added ${domain} to approved domain list`, 'success');
+            }
+        }
+
+        function removeApprovedDomain(domain) {
+            state.approvedDomains = state.approvedDomains.filter(d => d !== domain);
+            renderAdminSettings();
+            renderApprovalQueue();
+            showToast(`Removed domain ${domain}`);
+        }
+
+        function submitDeviceEnrollment() {
+            const code = document.getElementById('enrollmentCodeInput').value;
+            showToast(`Device enrolled successfully with code ${code}`, 'success');
+            addAuditLog('DEVICE_ENROLLED', 'Student Self-Service', 'Alex Rivera Device');
+        }
+
+        function simulateTeacherStartView() {
+            document.getElementById('student-active-banner').classList.remove('hidden');
+            showToast('Screen sharing started by teacher');
+        }
+
+        function simulateTeacherStopView() {
+            document.getElementById('student-active-banner').classList.add('hidden');
+            showToast('Screen sharing stopped by teacher');
+        }
+
+        function bulkLockClass() {
+            showToast('Focus lock command sent to all devices in class', 'success');
+            addAuditLog('BULK_LOCK', 'Teacher', 'Period 3 Class');
+        }
+
+        function bulkMessageClass() {
+            showToast('Broadcast message pushed to class devices', 'success');
+        }
+
+        function bulkStopAllSharing() {
+            state.students.forEach(s => s.isSharing = false);
+            updateSharingBadges();
+            renderStudentsGrid();
+            renderLiveGrid();
+            showToast('All active screen sessions terminated', 'info');
+        }
+
+        function updateSharingBadges() {
+            const count = state.students.filter(s => s.isSharing).length;
+            document.getElementById('active-screens-badge').innerText = `${count} Sharing`;
+        }
+
+        function addAuditLog(action, admin, target) {
+            const time = new Date().toLocaleTimeString();
+            state.auditLogs.unshift({ timestamp: time, action, admin, target, status: 'SUCCESS' });
+        }
+
+        function renderAuditLogs() {
+            const container = document.getElementById('audit-log-rows');
+            if (!container) return;
+            container.innerHTML = state.auditLogs.map(l => `
+                <tr>
+                    <td class="p-3.5 font-mono text-[10px] text-slate-400">${l.timestamp}</td>
+                    <td class="p-3.5 font-bold text-white">${l.action}</td>
+                    <td class="p-3.5">${l.admin}</td>
+                    <td class="p-3.5 text-brand-400">${l.target}</td>
+                    <td class="p-3.5 text-emerald-400 font-bold">${l.status}</td>
+                </tr>
+            `).join('');
+        }
+
+        function exportAuditLogsCSV() {
+            showToast('Audit logs exported to CSV');
+        }
+
+        function openGoogleClassroomModal() {
+            document.getElementById('gclassroom-modal').classList.remove('hidden');
+        }
+
+        function closeGoogleClassroomModal() {
+            document.getElementById('gclassroom-modal').classList.add('hidden');
+        }
+
+        function syncGoogleClassroomNow() {
+            showToast('Synced rosters with Google Classroom (Rusinga & Makini)', 'success');
+            closeGoogleClassroomModal();
+        }
+
+        window.onload = function() {
+            renderApprovalQueue();
+            renderStudentsGrid();
+            renderRoomCodes();
+            renderGroupChat();
+            renderBannedAlerts();
+            renderAdminSettings();
+            renderAuditLogs();
+        };
+    </script>
+</body>
+</html>
